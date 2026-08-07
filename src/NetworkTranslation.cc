@@ -1,8 +1,4 @@
-//
-// Created by Алексей Подоплелов on 01.06.2026.
-//
-
-#include "../include/ApiHandler.h"
+#include "TransaltionProvider.h"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/ssl.hpp>
@@ -12,15 +8,18 @@
 #include <iostream>
 #include <json.hpp>
 
-str DeepSeekApiHandler::call_api(const str &buf, const str &api_key) {
-    str user_content{"Переведи на русский(В ответ только перевод):" + buf};
+NetworkProvider::NetworkProvider( const std::string &api_key ) : api_key_(api_key) {
+}
+
+TranslationResult NetworkProvider::doTranslate( const TranslationRequest &request_info ) {
+    std::string user_content{"Переведи на русский(В ответ только перевод):" + request_info.text};
     nlohmann::json payload_json;
     payload_json["model"] = "deepseek/deepseek-v4-flash";
     payload_json["messages"] = nlohmann::json::array();
     payload_json["messages"].push_back({{"role", "user"}, {"content", user_content}});
     payload_json["max_tokens"] = 100;
     payload_json["stream"] = false;
-    str payload = payload_json.dump();
+    std::string payload = payload_json.dump();
 
     // инициализируем io_context
     boost::asio::io_context ioc;
@@ -51,7 +50,7 @@ str DeepSeekApiHandler::call_api(const str &buf, const str &api_key) {
     req.target(target_);
     req.version(11);  // HTTP/1.1
     req.set(boost::beast::http::field::host, host_);
-    req.set(boost::beast::http::field::authorization, "Bearer " + api_key);
+    req.set(boost::beast::http::field::authorization, "Bearer " + api_key_);
     req.set(boost::beast::http::field::content_type, "application/json");
     req.body() = payload;
     req.content_length(payload.size());
@@ -65,7 +64,7 @@ str DeepSeekApiHandler::call_api(const str &buf, const str &api_key) {
     boost::beast::http::response<boost::beast::http::string_body> res;
     boost::beast::http::read(stream, buffer, res);
 
-    str reply{};
+    std::string reply{};
     try {
         std::cout << "HTTP " << res.result_int() << " " << res.reason() << std::endl;
         nlohmann::json data = nlohmann::json::parse(res.body());
@@ -84,5 +83,5 @@ str DeepSeekApiHandler::call_api(const str &buf, const str &api_key) {
     stream.shutdown(ec);
     (void)ec;
 
-    return reply;
+    return {};
 }
